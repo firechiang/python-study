@@ -13,7 +13,7 @@ $ cd Python-3.8.9
 $ ./configure --prefix=/usr/local --enable-optimizations --with-ssl --with-ensurepip=install --enable-shared LDFLAGS="-Wl,-rpath /usr/local/lib"
 # 编译安装
 $ make && make install
-# 创建软连接（以后要使用python3直接使用命令python3即可，要安装依赖使用pip3）
+# 创建软连接（以后要使用python3直接使用命令python3即可，要安装依赖使用pip）
 $ ln -s /usr/local/bin/python3.8 /usr/bin/python3
 $ ln -s /usr/local/bin/pip3.8 /usr/bin/pip
 ```
