@@ -3,7 +3,7 @@
 # 安装编译相关
 $ yum install gcc zlib-devel openssl-devel -y
 # 创建并定位到python3源码编译目录
-$ mkdir -p home/python3 && cd /home/python3
+$ mkdir -p /home/python3 && cd /home/python3
 $ 下载python3源码
 $ wget https://www.python.org/ftp/python/3.8.9/Python-3.8.9.tar.xz
 # 解压源码
