@@ -86,51 +86,50 @@ class Blast(Item):
     width = 50
     height = 50
 
-    def __init__(self,surface,left,top):
+    def __init__(self,surface,rect):
         super(Blast, self).__init__(surface)
-        self.size = 10
-        self.max = False
-        self.index = 0
-        self.images = {
-            0:pygame.image.load("tank_images/10.gif"),
-            1: pygame.image.load("tank_images/10.gif"),
-            2: pygame.image.load("tank_images/10.gif"),
-            3: pygame.image.load("tank_images/10.gif"),
-            4: pygame.image.load("tank_images/10.gif"),
-            5: pygame.image.load("tank_images/10.gif"),
-            6: pygame.image.load("tank_images/10.gif"),
-            7: pygame.image.load("tank_images/10.gif"),
-            8: pygame.image.load("tank_images/10.gif"),
-            9: pygame.image.load("tank_images/10.gif"),
-            10: pygame.image.load("tank_images/10.gif")
-        }
+        #self.size = 10
+        #self.max = False
+        #self.index = 0
+        self.images = [pygame.image.load("tank_images/0.gif"),\
+                       pygame.image.load("tank_images/1.gif"),\
+                       pygame.image.load("tank_images/2.gif"),\
+                       pygame.image.load("tank_images/3.gif"),\
+                       pygame.image.load("tank_images/4.gif"),\
+                       pygame.image.load("tank_images/5.gif"),\
+                       pygame.image.load("tank_images/6.gif"),\
+                       pygame.image.load("tank_images/7.gif"),\
+                       pygame.image.load("tank_images/8.gif"),\
+                       pygame.image.load("tank_images/9.gif"),\
+                       pygame.image.load("tank_images/10.gif")]
         # 爆炸图片
-        self.image = self.images[self.index]
+        #self.image = self.images[self.index]
         # 爆炸所在位置
-        self.rect = self.image.get_rect()
-        self.rect.left = left
-        self.rect.top = top
+        #self.rect = self.image.get_rect()
+        #self.rect.left = left
+        #self.rect.top = top
         # 爆炸是否存在
         self.live = True
+        # 爆炸图片位置
+        self.step = 0
+        # 爆炸显示的位置（默认传过来的位置就是坦克的位置）
+        self.rect = rect
 
-    # 爆炸变化，由小变大，由大变小
-    def change(self):
-        if not self.max:
-            self.index += 1
-            if self.index == 10:
-                self.max = True
-        else:
-            self.index -= 1
-            if self.index == 0:
+    # 爆炸显示函数
+    def display(self):
+        # 爆炸是否还存活
+        if self.live:
+            # 如果爆炸图片已显示到最后一张图片了
+            if self.step == len(self.images):
                 self.live = False
-
-    # 显示爆炸（将爆炸画到窗口上）
-    def show(self):
-        if(self.live):
-            # 爆炸
-            self.image = self.images[self.index]
-            # 将爆炸画到窗口上
-            self.surface.blit(self.image,self.rect)
+            else:
+                self.image = self.images[self.step]
+                # 将炮弹画到窗口上
+                self.surface.blit(self.image, self.rect)
+                # 爆炸放大
+                self.step += 1
+        else:
+            TankMain.balst_list.remove(self)
 
 # 炮弹
 class Mis(Item):
@@ -163,6 +162,8 @@ class Mis(Item):
         self.rect.top = tank.rect.top + (tank.height - Mis.height) // 2
         # 炮弹是否存在
         self.live = True
+        # 炮弹好坏: 敌方坦克炮弹 False，我方坦克炮弹 True
+        self.good = False
 
     # 显示炮弹（将炮弹画到窗口上）
     def show(self):
@@ -202,12 +203,20 @@ class Mis(Item):
                     self.live = False
     # 碰撞坦克
     def collision(self):
-        for tank in TankMain.enemy_list:
-            if self.direction == "U":
-                if self.rect.top >= tank.rect.bottom and self.rect.top <= tank.rect.top:
-                    tank.live = False
-                    TankMain.enemy_list.remove(tank)
-
+        # 我方坦克发射的炮弹
+        if self.good:
+            # 是否碰撞（最后一个参数表示是否要删除已碰撞的元素）
+            collision_list = pygame.sprite.spritecollide(self,TankMain.enemy_list,False)
+            # 循环已碰撞的元素
+            for t in collision_list:
+                # 敌方坦克没了
+                t.live = False
+                # 炮弹也没了
+                self.live = False
+                # 初始化爆炸
+                balst = Blast(self.surface,t.rect)
+                # 将炮弹加入集合
+                TankMain.balst_list.append(balst)
 
 # 墙
 class Wall(Item):
@@ -216,7 +225,22 @@ class Wall(Item):
 # 我方坦克
 class MyTank(Tank):
     def __init__(self,surface):
+        self.live = True
         super(MyTank, self).__init__(surface,400,600)
+
+    # 我方坦克碰撞敌方子弹
+    def collect_mis(self):
+        m_list = pygame.sprite.spritecollide(self,TankMain.mis_list,False)
+        for m in m_list:
+            m.live = False
+            TankMain.mis_list.remove(m)
+            self.live = False
+            # 初始化爆炸
+            balst = Blast(self.surface, self.rect)
+            # 将炸弹加入集合
+            TankMain.balst_list.append(balst)
+            break;
+
 
 
 
@@ -262,7 +286,15 @@ class EnemyTabk(Tank):
                 self.move()
                 # 坦克固定移动步数减1
                 self.step-=1
-
+    # 随机开炮
+    def random_k(self):
+        r = random.randint(0,50)
+        if r > 40:
+            # 初始化炮弹
+            m = self.fire()
+            TankMain.mis_list.add(m)
+        else:
+            pass
 
 
 # Tank游戏主界面
@@ -272,9 +304,11 @@ class TankMain(object):
     height = 700
 
     # 炮弹集合
-    mis_list = []
+    mis_list = pygame.sprite.Group()
     # 敌方坦克集合
-    enemy_list = []
+    enemy_list = pygame.sprite.Group()
+    # 炸弹集合
+    balst_list = []
 
     # 开始游戏
     def start(self):
@@ -287,9 +321,9 @@ class TankMain(object):
         pygame.display.set_caption("坦克大战")
         # 创建我方坦克
         my_tank = MyTank(surface)
-
+        # 初始化敌方坦克
         for i in range(1,6):
-            TankMain.enemy_list.append(EnemyTabk(surface))
+            TankMain.enemy_list.add(EnemyTabk(surface))
 
 
         while True:
@@ -299,11 +333,20 @@ class TankMain(object):
             # 在屏幕的左上角画文字（第二个参数文字要画的位置）
             surface.blit(self.write_text(),(0,5))
             # 显示我方坦克
-            my_tank.show()
-            # 移动我方坦克
-            my_tank.move()
+            if my_tank.live:
+                # 我方坦克与敌方子弹做碰撞检测
+                my_tank.collect_mis()
+                # 显示我方坦克
+                my_tank.show()
+                # 移动我方坦克
+                my_tank.move()
+            else:
+                print("游戏结束")
+                #sys.exit()
+                #del(my_tank)
+                #my_tank = None
 
-            # 炮弹
+            # 显示炮弹
             for mis in TankMain.mis_list:
                 # 炮弹还存在
                 if mis.live:
@@ -317,12 +360,21 @@ class TankMain(object):
                 else:
                     TankMain.mis_list.remove(mis)
 
-            # 敌方坦克
+            # 显示敌方坦克
             for enemy_t in TankMain.enemy_list:
-                # 显示敌方坦克
-                enemy_t.show()
-                # 随机移动敌方坦克
-                enemy_t.random_move()
+                if enemy_t.live:
+                    # 显示敌方坦克
+                    enemy_t.show()
+                    # 随机移动敌方坦克
+                    enemy_t.random_move()
+                    # 随机开炮
+                    enemy_t.random_k()
+                else:
+                    TankMain.enemy_list.remove(enemy_t)
+
+            # 显示爆炸
+            for blast in TankMain.balst_list:
+                blast.display()
 
             # 事件处理
             self.event_handler(my_tank)
@@ -377,8 +429,12 @@ class TankMain(object):
 
                 # 按下空格发射炮弹
                 if event.key == pygame.K_SPACE:
+                    # 构建炮弹
+                    my_mis = my_tank.fire()
+                    # 我方坦克发射的炮弹
+                    my_mis.good = True
                     # 将炮弹放入集合
-                    TankMain.mis_list.append(my_tank.fire())
+                    TankMain.mis_list.add(my_mis)
 
             # 键盘弹起事件
             if event.type == pygame.KEYUP:
