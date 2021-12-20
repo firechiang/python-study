@@ -39,6 +39,9 @@ class Tank(Item):
         self.rect = self.image.get_rect()
         self.rect.left = left
         self.rect.top = top
+        # 记录坦克之前的位置
+        self.oldtop = self.rect.top
+        self.oldleft = self.rect.left
         # 坦克是否存在
         self.live = True
 
@@ -53,6 +56,9 @@ class Tank(Item):
     def move(self):
         # 如果坦克不是停止状态
         if not self.stop:
+            # 记录坦克原来的位置
+            self.oldtop = self.rect.top
+            self.oldleft = self.rect.left
             if self.direction == "L":
                 if self.rect.left > 0:
                     self.rect.left -=self.speed
@@ -80,6 +86,11 @@ class Tank(Item):
     # 开炮
     def fire(self):
         return Mis(self.surface,self)
+
+    # 坦克还原到原来的位置
+    def reduction(self):
+        self.rect.top = self.oldtop
+        self.rect.left = self.oldleft
 
 # 爆炸
 class Blast(Item):
@@ -218,10 +229,29 @@ class Mis(Item):
                 # 将炮弹加入集合
                 TankMain.balst_list.append(balst)
 
+
 # 墙
 class Wall(Item):
-    pass
+    def __init__(self, surface, left, top, width, height):
+        super(Wall, self).__init__(surface)
+        self.rect = pygame.Rect(left, top, width, height)
+        self.color = (255,0,0)
 
+    def display(self):
+        # 画墙
+        self.surface.fill(self.color,self.rect)
+
+    # 墙和坦克的碰撞检测
+    def hit_other(self):
+        # 我方坦克与墙碰撞
+        if TankMain.my_tank:
+            is_hit = pygame.sprite.collide_rect(self,TankMain.my_tank)
+            # 问题：碰撞后让坦克停止，但是坦克此时已经碰撞，将无法移动
+            # 解决方案：如果能知道坦克是哪个方向撞墙了，就让那一个方向停止即可解决上述问题
+            if is_hit:
+                TankMain.my_tank.stop = True
+                # 坦克与墙碰撞后，让坦克回到之前的位置
+                TankMain.my_tank.reduction()
 # 我方坦克
 class MyTank(Tank):
     def __init__(self,surface):
@@ -241,10 +271,6 @@ class MyTank(Tank):
                 # 将炸弹加入集合
                 TankMain.balst_list.append(balst)
                 break;
-
-
-
-
 
 
 # 敌方坦克
@@ -304,12 +330,16 @@ class TankMain(object):
     width = 800
     height = 700
 
+    # 我方坦克
+    my_tank = None
     # 炮弹集合
     mis_list = pygame.sprite.Group()
     # 敌方坦克集合
     enemy_list = pygame.sprite.Group()
     # 炸弹集合
     balst_list = []
+    # 墙
+    wall = None
 
     # 开始游戏
     def start(self):
@@ -320,8 +350,10 @@ class TankMain(object):
         surface = pygame.display.set_mode((TankMain.width,TankMain.height),0,32)
         # 设置窗口名称
         pygame.display.set_caption("坦克大战")
+        # 创建墙
+        TankMain.wall = Wall(surface,100,200,100,20)
         # 创建我方坦克
-        my_tank = MyTank(surface)
+        TankMain.my_tank = MyTank(surface)
         # 初始化敌方坦克
         for i in range(1,6):
             TankMain.enemy_list.add(EnemyTabk(surface))
@@ -333,14 +365,18 @@ class TankMain(object):
             surface.fill((0,0,0))
             # 在屏幕的左上角画文字（第二个参数文字要画的位置）
             surface.blit(self.write_text(),(0,5))
+            # 显示墙
+            TankMain.wall.display()
+            # 墙与坦克碰撞检测
+            TankMain.wall.hit_other()
             # 显示我方坦克
-            if my_tank.live:
+            if TankMain.my_tank.live:
                 # 我方坦克与敌方子弹做碰撞检测
-                my_tank.collect_mis()
+                TankMain.my_tank.collect_mis()
                 # 显示我方坦克
-                my_tank.show()
+                TankMain.my_tank.show()
                 # 移动我方坦克
-                my_tank.move()
+                TankMain.my_tank.move()
             else:
                 print("游戏结束")
                 #sys.exit()
@@ -378,7 +414,7 @@ class TankMain(object):
                 blast.display()
 
             # 事件处理
-            self.event_handler(my_tank)
+            self.event_handler(TankMain.my_tank)
             # 线程睡眠 0.003秒
             time.sleep(0.03)
             # 显示重置
