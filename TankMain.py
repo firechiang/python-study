@@ -232,14 +232,15 @@ class MyTank(Tank):
     def collect_mis(self):
         m_list = pygame.sprite.spritecollide(self,TankMain.mis_list,False)
         for m in m_list:
-            m.live = False
-            TankMain.mis_list.remove(m)
-            self.live = False
-            # 初始化爆炸
-            balst = Blast(self.surface, self.rect)
-            # 将炸弹加入集合
-            TankMain.balst_list.append(balst)
-            break;
+            if not m.good:
+                m.live = False
+                TankMain.mis_list.remove(m)
+                self.live = False
+                # 初始化爆炸
+                balst = Blast(self.surface, self.rect)
+                # 将炸弹加入集合
+                TankMain.balst_list.append(balst)
+                break;
 
 
 
